@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>CampusSafe Alert</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one-screen phone app. Schematic map on top, task panel below, four-tab bar at the bottom.
+   Colour: deep teal brand; red is reserved for SOS and danger; map risk uses green / amber / red. */
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --ink:#14211F; --muted:#586966; --line:#D5DEDC; --chip:#E3EAE8;
+  --brand:#0E6B63; --brand-ink:#FFFFFF; --sos:#D3243B; --sos-ink:#FFFFFF;
+  --safe:#2F9E6D; --mid:#E0A22A; --danger:#D6423C;
+  --safe-t:#1F7A52; --mid-t:#8A5B00; --danger-t:#B3261E;
+  --map-bg:#E6ECEA; --block:#D4DDDA; --park:#BFDCC8; --tree:#9CC7AC; --parktxt:#2E6B48;
+  --street:#FFFFFF; --street-edge:#BFCBC8; --lamp:#F2B632; --me:#2563EB; --help:#0E6B63;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1312; --surface:#141E1D; --ink:#E6EFED; --muted:#8FA3A0; --line:#253533; --chip:#1C2A28;
+    --brand:#4DC2B2; --brand-ink:#06201C; --sos:#E03B4E; --sos-ink:#FFFFFF;
+    --safe:#43C08A; --mid:#E8B341; --danger:#EF5D56;
+    --safe-t:#43C08A; --mid-t:#E8B341; --danger-t:#F2706A;
+    --map-bg:#101A19; --block:#1A2927; --park:#1F3A2E; --tree:#2A4D3C; --parktxt:#8FCBA8;
+    --street:#2B3D3B; --street-edge:#0B1110; --lamp:#F5C253; --me:#6FA0FF; --help:#4DC2B2;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1312; --surface:#141E1D; --ink:#E6EFED; --muted:#8FA3A0; --line:#253533; --chip:#1C2A28;
+  --brand:#4DC2B2; --brand-ink:#06201C; --sos:#E03B4E; --sos-ink:#FFFFFF;
+  --safe:#43C08A; --mid:#E8B341; --danger:#EF5D56;
+  --safe-t:#43C08A; --mid-t:#E8B341; --danger-t:#F2706A;
+  --map-bg:#101A19; --block:#1A2927; --park:#1F3A2E; --tree:#2A4D3C; --parktxt:#8FCBA8;
+  --street:#2B3D3B; --street-edge:#0B1110; --lamp:#F5C253; --me:#6FA0FF; --help:#4DC2B2;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font:15px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-text-size-adjust:100%;
+}
+button,select{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--me);outline-offset:2px}
+.app{height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-top:8px;min-height:0}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px 10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}
+.brand svg{flex:none;color:var(--brand)}
+.name{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+.sub{font-size:11px;color:var(--muted);line-height:1.2}
+.ctl{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;background:var(--chip);border-radius:10px;padding:2px}
+.seg button{border:0;background:transparent;padding:6px 9px;border-radius:8px;font-size:12px;font-weight:700;color:var(--muted);min-height:32px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink)}
+.tod{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:5px 10px;font-size:12px;font-weight:700;min-height:36px}
+
+/* map */
+.mapwrap{flex:0 0 38%;min-height:180px;max-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--map-bg)}
+.mapwrap svg{display:block;width:100%;height:100%;touch-action:manipulation}
+.bg{fill:var(--map-bg)}
+.blk{fill:var(--block)}
+.park{fill:var(--park)}
+.tree{fill:var(--tree)}
+.parklbl{fill:var(--parktxt);font-size:9px;font-weight:600}
+.st-casing{stroke:var(--street-edge);stroke-width:7;stroke-linecap:round}
+.st-in{stroke:var(--street);stroke-width:4;stroke-linecap:round}
+.st-in.c-safe{stroke:var(--safe)}
+.st-in.c-mid{stroke:var(--mid)}
+.st-in.c-danger{stroke:var(--danger)}
+.heat line{stroke-width:24;stroke-linecap:round;opacity:.5}
+.h-safe{stroke:var(--safe)}
+.h-mid{stroke:var(--mid)}
+.h-danger{stroke:var(--danger)}
+.lamp{fill:var(--lamp)}
+.sel-edge{stroke:var(--me);stroke-width:12;opacity:.3;stroke-linecap:round}
+.r-casing{stroke:var(--surface);stroke-width:9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.r-safe{stroke:var(--brand);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.r-short{stroke:var(--danger);stroke-width:4;stroke-dasharray:6 6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.hp{fill:var(--help);stroke:var(--surface);stroke-width:2}
+.hp-x{stroke:#fff;stroke-width:2.2;stroke-linecap:round}
+.pl{fill:var(--surface);stroke:var(--ink);stroke-width:2}
+.lbl{font-size:10px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--map-bg);stroke-width:3px;stroke-linejoin:round}
+.lbl.h{fill:var(--brand)}
+.me-halo{fill:var(--me);opacity:.25;transform-box:fill-box;transform-origin:center;animation:pulse 2s ease-out infinite}
+.tg-halo{fill:var(--help);transform-box:fill-box;transform-origin:center;animation:pulse 1.6s ease-out infinite}
+.me-dot{fill:var(--me);stroke:#fff;stroke-width:2.5}
+.rep{fill:var(--danger);stroke:var(--surface);stroke-width:2}
+.repx{fill:#fff;font-size:10px;font-weight:800;text-anchor:middle}
+.rs-a{fill:var(--surface);stroke:var(--brand);stroke-width:3}
+.rs-b{fill:var(--brand);stroke:var(--surface);stroke-width:2}
+@keyframes pulse{0%{transform:scale(.6);opacity:.5}100%{transform:scale(1.6);opacity:0}}
+@media (prefers-reduced-motion:reduce){.me-halo,.tg-halo{animation:none}}
+
+/* panel */
+.panel{flex:1 1 0;min-height:0;overflow-y:auto;padding-bottom:10px;overscroll-behavior:contain}
+.h3{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.h3:first-child{margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;min-height:38px;display:inline-flex;align-items:center;gap:7px}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:12px 0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.d-safe{background:var(--safe)}.d-mid{background:var(--mid)}.d-danger{background:var(--danger)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.card + .card{margin-top:10px}
+.hint{color:var(--muted);font-size:14px}
+.note{color:var(--muted);font-size:12px;margin:12px 0 0}
+.ttl{font-weight:700;font-size:16px;line-height:1.25}
+.tag{font-size:12px;color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}
+.bar{height:7px;border-radius:4px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand)}
+.score{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.t-safe{color:var(--safe-t)}.t-mid{color:var(--mid-t)}.t-danger{color:var(--danger-t)}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+
+/* route */
+.ft{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px}
+.ft .a{grid-column:1;grid-row:1}.ft .b{grid-column:1;grid-row:2}
+.ft .sw{grid-column:2;grid-row:1 / 3;align-self:center;height:44px;width:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;display:grid;place-items:center}
+.fl{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);min-height:44px;font-size:14px}
+.rt{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:2px 12px;align-items:center}
+.rt svg{grid-row:1 / 3}
+.rt .s{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rt .p{grid-row:1 / 3;grid-column:3;text-align:right}
+.rt .p b{font-size:22px;font-weight:800;display:block;line-height:1;font-variant-numeric:tabular-nums}
+.rt .p span{font-size:11px;color:var(--muted)}
+.sum{margin-top:12px;font-size:14px}
+
+/* sos */
+.alert{border:1px solid var(--sos);border-radius:14px;padding:12px 14px;background:var(--surface)}
+.alert b.l{display:block;font-size:14px;margin-bottom:2px}
+.alert .m{font-size:12px;color:var(--muted);margin-bottom:10px}
+.phones{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.phone{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px;border-radius:12px;border:1px solid var(--line);background:var(--bg);text-decoration:none;color:var(--ink)}
+.phone b{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}
+.phone span{font-size:11px;color:var(--muted);text-align:center;line-height:1.2}
+.sosbtn{width:100%;border:0;border-radius:16px;background:var(--sos);color:var(--sos-ink);font-weight:800;font-size:17px;padding:15px;min-height:56px;margin-top:12px}
+.warn{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--chip);font-size:13px}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 12px;min-height:54px}
+.row[aria-pressed="true"]{border:2px solid var(--brand);padding:8px 11px}
+.row .n{font-weight:600;font-size:14px}
+.row .d{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.badge{font-size:11px;font-weight:700;color:var(--brand-ink);background:var(--brand);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.share{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px dashed var(--line);font-size:14px;user-select:all;-webkit-user-select:all}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 14px;font-weight:700;font-size:14px;min-height:44px}
+.btn.p{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.rlist{display:flex;flex-direction:column;gap:8px}
+.ritem{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.ritem small{display:block;color:var(--muted);font-size:12px}
+.x{border:0;background:var(--chip);width:34px;height:34px;border-radius:10px;font-size:18px;line-height:1}
+
+/* nav */
+.nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:6px 0 8px;border-top:1px solid var(--line)}
+.nav button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:12px;font-size:11px;font-weight:700;color:var(--muted);min-height:50px}
+.nav button[aria-current="page"]{color:var(--brand);background:var(--chip)}
+.nav button.sos{color:var(--sos)}
+.nav button.sos[aria-current="page"]{background:var(--sos);color:var(--sos-ink)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;max-width:calc(100% - 32px);text-align:center;z-index:20}
+</style>
+</head>
+<body>
+
+
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z"/><path d="M8.5 12l2.4 2.4 4.6-4.8"/></svg>
+      <div><div class="name">CampusSafe Alert</div><div class="sub" id="sub"></div></div>
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Тіл / Язык">
+        <button data-act="lang" data-v="kk">ҚАЗ</button>
+        <button data-act="lang" data-v="ru">РУС</button>
+      </div>
+      <button class="tod" id="tod" data-act="tod"></button>
+    </div>
+  </header>
+  <div class="mapwrap" id="map"></div>
+  <main class="panel" id="panel"></main>
+  <nav class="nav" id="nav"></nav>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+'use strict';
+
+/*LOGIC-START*/
+const SCALE=2;   // метров на единицу карты
+const WALK=80;   // метров в минуту пешком
+const NODES={A:[40,40],B:[140,40],C:[240,40],D:[330,40],E:[40,130],F:[140,130],G:[240,130],H:[330,130],
+             I:[40,220],J:[140,220],K:[240,220],L:[330,220],M:[40,310],N:[140,310],O:[240,310],P:[330,310]};
+// a, b, освещённость 0..1, людской поток 0..1
+const RAW=[
+ ['A','B',.9,.8],['B','C',.8,.7],['C','D',.6,.5],
+ ['E','F',.9,.9],['F','G',.9,.9],['G','H',.7,.6],
+ ['I','J',.5,.4],['J','K',.2,.1],['K','L',.6,.6],
+ ['M','N',.4,.3],['N','O',.2,.1],['O','P',.7,.7],
+ ['A','E',.9,.8],['E','I',.6,.5],['I','M',.4,.3],
+ ['B','F',.9,.8],['F','J',.7,.6],['J','N',.2,.1],
+ ['C','G',.8,.7],['G','K',.6,.5],['K','O',.2,.1],
+ ['D','H',.6,.4],['H','L',.7,.7],['L','P',.8,.8],
+ ['J','O',.1,.05]
+];
+const EDGES=RAW.map((r,i)=>{
+  const a=r[0],b=r[1],p1=NODES[a],p2=NODES[b];
+  const u=Math.hypot(p2[0]-p1[0],p2[1]-p1[1]);
+  return {id:a+b,n:i+1,a:a,b:b,x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],u:u,len:Math.round(u*SCALE),light:r[2],ppl:r[3]};
+});
+const ADJ={};
+Object.keys(NODES).forEach(k=>{ADJ[k]=[];});
+EDGES.forEach(e=>{ADJ[e.a].push(e);ADJ[e.b].push(e);});
+
+const PLACES={
+  dorm:{n:'A',kk:'Жатақхана',ru:'Общежитие',sk:'Жатақхана',sr:'Общежитие',lx:9,ly:-8,an:'start'},
+  library:{n:'C',kk:'Кітапхана',ru:'Библиотека',sk:'Кітапхана',sr:'Библиотека',lx:9,ly:-8,an:'start'},
+  main:{n:'G',kk:'Негізгі корпус',ru:'Главный корпус',sk:'Корпус',sr:'Корпус',lx:9,ly:-8,an:'start'},
+  sport:{n:'I',kk:'Спорт кешені',ru:'Спорткомплекс',sk:'Спорт',sr:'Спорт',lx:9,ly:-8,an:'start'},
+  bus:{n:'P',kk:'Аялдама',ru:'Остановка',sk:'Аялдама',sr:'Остановка',lx:-9,ly:-8,an:'end'},
+  park:{n:'J',kk:'Саябақ кіреберісі',ru:'Вход в парк',sk:'',sr:'',lx:0,ly:0,an:'start'}
+};
+const HELP={
+  security:{n:'F',kk:'Күзет бекеті',ru:'Пост охраны',sk:'Күзет',sr:'Охрана',lx:11,ly:-9,an:'start'},
+  police:{n:'K',kk:'Полиция бекеті',ru:'Полицейский пост',sk:'Полиция',sr:'Полиция',lx:11,ly:-9,an:'start'},
+  pharmacy:{n:'H',kk:'Дәріхана 24/7',ru:'Аптека 24/7',sk:'Дәріхана',sr:'Аптека',lx:-11,ly:22,an:'end'},
+  store:{n:'L',kk:'Дүкен 24/7',ru:'Магазин 24/7',sk:'Дүкен',sr:'Магазин',lx:-11,ly:22,an:'end'},
+  clinic:{n:'M',kk:'Емхана 24/7',ru:'Медпункт 24/7',sk:'Емхана',sr:'Медпункт',lx:11,ly:-9,an:'start'}
+};
+
+const S={lang:'kk',night:true,tab:'map',layers:{heat:true,help:true,lamps:false},
+  pick:null,sel:null,from:'dorm',to:'bus',target:null,sosOn:false,needPos:false,rtype:'dark',reports:[]};
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function repCount(id){let c=0;for(const r of S.reports){if(r.edge===id)c++;}return c;}
+function safety(e){
+  let s=S.night?(.6*e.light+.4*e.ppl):(.2*e.light+.5*e.ppl+.3);
+  s-=Math.min(.5,.2*repCount(e.id));
+  return clamp(s,0,1);
+}
+function riskClass(s){return s>=.65?'safe':(s>=.4?'mid':'danger');}
+
+function dijkstra(src,dst,cost){
+  const dist={},prev={},pe={},Q=new Set(Object.keys(NODES));
+  Q.forEach(n=>{dist[n]=Infinity;});
+  dist[src]=0;
+  while(Q.size){
+    let u=null;
+    Q.forEach(n=>{if(u===null||dist[n]<dist[u])u=n;});
+    if(dist[u]===Infinity)break;
+    Q.delete(u);
+    if(u===dst)break;
+    for(const e of ADJ[u]){
+      const v=e.a===u?e.b:e.a;
+      const alt=dist[u]+cost(e);
+      if(alt<dist[v]){dist[v]=alt;prev[v]=u;pe[v]=e;}
+    }
+  }
+  if(dist[dst]===Infinity)return null;
+  const nodes=[],edges=[];
+  let c=dst;
+  while(c!==src){nodes.unshift(c);edges.unshift(pe[c]);c=prev[c];}
+  nodes.unshift(src);
+  return {nodes:nodes,edges:edges};
+}
+function stats(r){
+  const len=r.edges.reduce((a,e)=>a+e.len,0);
+  const sc=len?r.edges.reduce((a,e)=>a+e.len*safety(e),0)/len:1;
+  const dark=r.edges.filter(e=>safety(e)<.4).length;
+  return {nodes:r.nodes,edges:r.edges,len:len,min:Math.max(1,Math.round(len/WALK)),score:Math.round(sc*100),dark:dark};
+}
+function routesFor(fromKey,toKey){
+  const s=PLACES[fromKey].n,d=PLACES[toKey].n;
+  if(s===d)return null;
+  const K=S.night?4:1.5;
+  const safe=dijkstra(s,d,e=>e.len*(1+K*(1-safety(e))));
+  const short=dijkstra(s,d,e=>e.len);
+  if(!safe||!short)return null;
+  const a=stats(safe),b=stats(short);
+  return {safe:a,short:b,same:a.nodes.join()===b.nodes.join()};
+}
+function segDist(p,e){
+  const dx=e.x2-e.x1,dy=e.y2-e.y1,l2=dx*dx+dy*dy;
+  const u=clamp(((p.x-e.x1)*dx+(p.y-e.y1)*dy)/l2,0,1);
+  return Math.hypot(p.x-(e.x1+u*dx),p.y-(e.y1+u*dy));
+}
+function nearestEdge(p){let b=null,bd=1e9;for(const e of EDGES){const d=segDist(p,e);if(d<bd){bd=d;b=e;}}return b;}
+function nearestNode(p){let b=null,bd=1e9;for(const k in NODES){const d=Math.hypot(p.x-NODES[k][0],p.y-NODES[k][1]);if(d<bd){bd=d;b=k;}}return b;}
+function featureAt(p){
+  let best=null,bd=14;
+  [['place',PLACES],['help',HELP]].forEach(g=>{
+    for(const k in g[1]){const c=NODES[g[1][k].n];const d=Math.hypot(p.x-c[0],p.y-c[1]);if(d<bd){bd=d;best={type:g[0],key:k};}}
+  });
+  return best;
+}
+function nearPlace(p){let b=null,bd=1e9;for(const k in PLACES){const c=NODES[PLACES[k].n];const d=Math.hypot(p.x-c[0],p.y-c[1]);if(d<bd){bd=d;b=k;}}return b;}
+function meNode(){return S.pick?nearestNode(S.pick):null;}
+function areaSafety(node){const es=ADJ[node];return es.reduce((a,e)=>a+safety(e),0)/es.length;}
+function helpList(){
+  const me=meNode();
+  if(!me)return [];
+  return Object.keys(HELP).map(k=>{
+    const r=dijkstra(me,HELP[k].n,e=>e.len);
+    const len=r?r.edges.reduce((a,e)=>a+e.len,0):0;
+    return {key:k,len:len,min:len?Math.max(1,Math.round(len/WALK)):0,nodes:r?r.nodes:[me]};
+  }).sort((a,b)=>a.len-b.len);
+}
+/*LOGIC-END*/
+
+/* ---------- строки ---------- */
+const T={
+kk:{
+ proto:'Прототип · демо-аумақ',
+ tabMap:'Карта',tabRoute:'Бағыт',tabSos:'SOS',tabReport:'Хабарлау',
+ day:'Күндіз',night:'Кеш',todLabel:'Тәулік уақыты',
+ lHeat:'Қауіпсіздік картасы',lHelp:'Көмек нүктелері',lLamps:'Жарық шамдары',
+ safe:'Қауіпсіз',mid:'Орташа',danger:'Қауіпті',
+ mapHint:'Картаны басып, көше учаскесінің немесе орынның қауіпсіздігін қараңыз.',
+ mapNote:'Шартты карта. Деректер демонстрацияға арналған.',
+ safety:'Қауіпсіздік',light:'Жарық',ppl:'Адам ағыны',reps:'Хабарламалар',
+ open24:'Тәулік бойы ашық',area:'Маңайдағы қауіпсіздік',place:'Орын',helpPt:'Көмек нүктесі',
+ seg:'Учаске №{n}',
+ from:'Қайдан',to:'Қайда',swap:'Орындарын ауыстыру',
+ rSafe:'Қауіпсіз бағыт',rShort:'Ең қысқа бағыт',
+ m:'м',min:'мин',darkSeg:'қараңғы учаске',
+ sameRoute:'Ең қысқа бағыт қазірдің өзінде ең қауіпсіз.',
+ diffRoute:'Қауіпсіз бағыт {d} м ұзағырақ, бірақ қауіпсіздік көрсеткіші {p} пунктке жоғары.',
+ samePlace:'Бастапқы және соңғы нүкте бірдей.',
+ emerg:'Шын қауіп төнсе, бірден 112 нөміріне қоңырау шалыңыз.',
+ emergSub:'Бұл прототип құтқару қызметтерін алмастырмайды. Сілтеме ашылмаса, нөмірді қолмен теріңіз.',
+ p112:'Құтқару қызметі',p102:'Полиция',p103:'Жедел жәрдем',
+ me:'Мен қазір',choose:'— орынды таңдаңыз —',mapPt:'Картадағы белгі',
+ sosBtn:'SOS · Жақын көмекті табу',
+ needPos:'Алдымен орныңызды белгілеңіз: картаны басыңыз немесе тізімнен таңдаңыз.',
+ nearest:'Жақын көмек нүктелері',walk:'{n} мин жаяу',here:'Дәл осы жерде',nearBadge:'Ең жақын',
+ shareT:'Жіберуге арналған хабарлама',copy:'Көшіру',copied:'Көшірілді',copyFail:'Мәтінді белгілеп, қолмен көшіріңіз.',
+ shareMsg:'SOS! Мен «{p}» маңындамын. Ең жақын көмек: {h} ({d} м).',
+ rHint:'Картадан проблемалы жерді басып, түрін таңдаңыз.',
+ rPicked:'Таңдалған учаске',rNow:'қазіргі қауіпсіздік',
+ rt_dark:'Қараңғы көше',rt_lamp:'Шам жанбайды',rt_empty:'Адамсыз, қорқынышты',rt_blocked:'Жол жабық немесе жөндеуде',
+ rSubmit:'Хабарлау',thanks:'Рақмет! Учаскенің қауіпсіздігі төмендетілді.',
+ mine:'Менің хабарламаларым',none:'Әзірге хабарлама жоқ.',clear:'Барлығын өшіру',del:'Өшіру',
+ demoNote:'Демо: хабарламалар тек осы құрылғыда сақталады.',
+ mapLabel:'Шартты карта'
+},
+ru:{
+ proto:'Прототип · демо-территория',
+ tabMap:'Карта',tabRoute:'Маршрут',tabSos:'SOS',tabReport:'Сообщить',
+ day:'День',night:'Вечер',todLabel:'Время суток',
+ lHeat:'Карта безопасности',lHelp:'Точки помощи',lLamps:'Фонари',
+ safe:'Безопасно',mid:'Средне',danger:'Опасно',
+ mapHint:'Нажмите на карту, чтобы увидеть безопасность участка или места.',
+ mapNote:'Условная карта. Данные демонстрационные.',
+ safety:'Безопасность',light:'Освещение',ppl:'Людской поток',reps:'Жалобы',
+ open24:'Открыто круглосуточно',area:'Безопасность вокруг',place:'Место',helpPt:'Точка помощи',
+ seg:'Участок №{n}',
+ from:'Откуда',to:'Куда',swap:'Поменять местами',
+ rSafe:'Безопасный маршрут',rShort:'Кратчайший маршрут',
+ m:'м',min:'мин',darkSeg:'тёмных участков',
+ sameRoute:'Кратчайший маршрут уже самый безопасный.',
+ diffRoute:'Безопасный маршрут длиннее на {d} м, зато безопаснее на {p} п.',
+ samePlace:'Начало и конец маршрута совпадают.',
+ emerg:'При реальной опасности сразу звоните 112.',
+ emergSub:'Прототип не заменяет экстренные службы. Если ссылка не открылась, наберите номер вручную.',
+ p112:'Служба спасения',p102:'Полиция',p103:'Скорая помощь',
+ me:'Я сейчас',choose:'— выберите место —',mapPt:'Отметка на карте',
+ sosBtn:'SOS · Найти ближайшую помощь',
+ needPos:'Сначала отметьте, где вы: нажмите на карту или выберите место из списка.',
+ nearest:'Ближайшие точки помощи',walk:'{n} мин пешком',here:'Прямо здесь',nearBadge:'Ближайшая',
+ shareT:'Сообщение для отправки',copy:'Скопировать',copied:'Скопировано',copyFail:'Выделите текст и скопируйте вручную.',
+ shareMsg:'SOS! Я рядом с «{p}». Ближайшая помощь: {h} ({d} м).',
+ rHint:'Нажмите на карту в проблемном месте и выберите тип.',
+ rPicked:'Выбранный участок',rNow:'безопасность сейчас',
+ rt_dark:'Тёмная улица',rt_lamp:'Не горит фонарь',rt_empty:'Безлюдно, тревожно',rt_blocked:'Путь закрыт или ремонт',
+ rSubmit:'Отправить',thanks:'Спасибо! Безопасность участка снижена.',
+ mine:'Мои жалобы',none:'Пока нет жалоб.',clear:'Удалить все',del:'Удалить',
+ demoNote:'Демо: жалобы хранятся только на этом устройстве.',
+ mapLabel:'Условная карта'
+}};
+function t(k,v){
+  let s=(T[S.lang]&&T[S.lang][k])||T.kk[k]||k;
+  if(v){for(const x in v){s=s.split('{'+x+'}').join(v[x]);}}
+  return s;
+}
+const nm=(o)=>o[S.lang];
+const $=id=>document.getElementById(id);
+
+/* ---------- хранение (только на этом устройстве) ---------- */
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+const RTYPES=['dark','lamp','empty','blocked'];
+function loadReports(){
+  try{
+    const a=JSON.parse(lsGet('csa.reports')||'[]');
+    if(!Array.isArray(a))return [];
+    return a.filter(r=>r&&typeof r.id==='string'&&RTYPES.indexOf(r.type)>=0&&EDGES.some(e=>e.id===r.edge));
+  }catch(e){return [];}
+}
+function saveReports(){lsSet('csa.reports',JSON.stringify(S.reports));}
+
+/* ---------- иконки ---------- */
+const ICON={
+  map:'<path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  route:'<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>',
+  sos:'<path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.1"/>',
+  report:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  swap:'<path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3"/>'
+};
+const svgi=(n,s)=>'<svg width="'+(s||20)+'" height="'+(s||20)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICON[n]+'</svg>';
+
+/* ---------- карта ---------- */
+const XS=[40,140,240,330],YS=[40,130,220,310];
+function initMap(){
+  let base='';
+  for(let c=0;c<3;c++){for(let r=0;r<3;r++){
+    const x=XS[c]+12,y=YS[r]+12,w=XS[c+1]-XS[c]-24,h=YS[r+1]-YS[r]-24;
+    if(c===1&&r===2)base+='<rect class="park" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="10"/>';
+    else base+='<rect class="blk" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="6"/>';
+  }}
+  base+='<circle class="tree" cx="214" cy="240" r="6"/><circle class="tree" cx="222" cy="262" r="5"/><circle class="tree" cx="176" cy="272" r="6"/><circle class="tree" cx="156" cy="262" r="5"/>';
+  base+='<text class="parklbl" id="parklbl" x="158" y="292"></text>';
+  $('map').innerHTML=
+   '<svg id="svg" viewBox="0 0 360 350" preserveAspectRatio="xMidYMid meet" role="img">'+
+   '<defs><filter id="blur" filterUnits="userSpaceOnUse" x="-30" y="-30" width="420" height="410"><feGaussianBlur stdDeviation="6"/></filter></defs>'+
+   '<rect class="bg" width="360" height="350"/>'+base+
+   '<g id="g-heat" class="heat" filter="url(#blur)"></g><g id="g-st"></g><g id="g-lamps"></g><g id="g-routes"></g>'+
+   '<g id="g-reps"></g><g id="g-help"></g><g id="g-places"></g><g id="g-me"></g></svg>';
+  $('svg').addEventListener('click',onMapClick);
+}
+function svgPoint(ev){
+  const svg=$('svg'),m=svg.getScreenCTM();
+  if(!m)return null;
+  const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;
+  const p=pt.matrixTransform(m.inverse());
+  return {x:clamp(p.x,0,360),y:clamp(p.y,0,350)};
+}
+function onMapClick(ev){
+  const p=svgPoint(ev);
+  if(!p)return;
+  const f=featureAt(p);
+  if(f){
+    const c=NODES[(f.type==='place'?PLACES:HELP)[f.key].n];
+    S.pick={x:c[0],y:c[1]};S.sel=f;
+  }else{S.pick=p;S.sel=null;}
+  S.needPos=false;
+  if(S.tab==='sos'){S.target=null;S.sosOn=false;}
+  render();
+}
+const pts=nodes=>nodes.map(n=>NODES[n][0]+','+NODES[n][1]).join(' ');
+function lineOf(cls,e){return '<line class="'+cls+'" x1="'+e.x1+'" y1="'+e.y1+'" x2="'+e.x2+'" y2="'+e.y2+'"/>';}
+
+function drawMap(){
+  const showHeat=S.layers.heat;
+  let heat='',st='',lamps='',routes='',reps='',help='',places='',me='';
+  EDGES.forEach(e=>{
+    const c=riskClass(safety(e));
+    if(showHeat)heat+=lineOf('h-'+c,e);
+    st+=lineOf('st-casing',e);
+  });
+  EDGES.forEach(e=>{
+    st+=lineOf('st-in'+(showHeat?' c-'+riskClass(safety(e)):''),e);
+  });
+  if(S.layers.lamps){
+    EDGES.forEach(e=>{
+      const mx=Math.floor(e.u/18),n=Math.round(e.light*mx);
+      for(let i=1;i<=n;i++){
+        const f=i/(n+1);
+        lamps+='<circle class="lamp" cx="'+(e.x1+(e.x2-e.x1)*f).toFixed(1)+'" cy="'+(e.y1+(e.y2-e.y1)*f).toFixed(1)+'" r="2"/>';
+      }
+    });
+  }
+  // выбранный участок
+  if(S.pick&&((S.tab==='map'&&!S.sel)||S.tab==='report')){
+    routes+=lineOf('sel-edge',nearestEdge(S.pick));
+  }
+  // маршруты
+  if(S.tab==='route'){
+    const R=routesFor(S.from,S.to);
+    if(R){
+      if(!R.same)routes+='<polyline class="r-short" points="'+pts(R.short.nodes)+'"/>';
+      routes+='<polyline class="r-casing" points="'+pts(R.safe.nodes)+'"/><polyline class="r-safe" points="'+pts(R.safe.nodes)+'"/>';
+      const a=NODES[PLACES[S.from].n],b=NODES[PLACES[S.to].n];
+      routes+='<circle class="rs-a" cx="'+a[0]+'" cy="'+a[1]+'" r="7"/><circle class="rs-b" cx="'+b[0]+'" cy="'+b[1]+'" r="8"/><circle cx="'+b[0]+'" cy="'+b[1]+'" r="2.6" fill="#fff"/>';
+    }
+  }
+  if(S.tab==='sos'&&S.sosOn&&S.target){
+    const hl=helpList().filter(x=>x.key===S.target)[0];
+    if(hl&&hl.nodes.length>1)routes+='<polyline class="r-casing" points="'+pts(hl.nodes)+'"/><polyline class="r-safe" points="'+pts(hl.nodes)+'"/>';
+  }
+  // жалобы
+  const seen={};
+  S.reports.forEach(r=>{
+    const e=EDGES.filter(x=>x.id===r.edge)[0];
+    if(!e)return;
+    const i=seen[e.id]||0;seen[e.id]=i+1;
+    const x=(e.x1+e.x2)/2+i*10,y=(e.y1+e.y2)/2;
+    reps+='<g transform="translate('+x.toFixed(1)+','+y.toFixed(1)+')"><circle class="rep" r="7"/><text class="repx" y="3.5">!</text></g>';
+  });
+  // точки помощи
+  if(S.layers.help||S.tab==='sos'){
+    for(const k in HELP){
+      const h=HELP[k],c=NODES[h.n];
+      if(S.tab==='sos'&&S.sosOn&&S.target===k)help+='<circle class="tg-halo" cx="'+c[0]+'" cy="'+c[1]+'" r="16"/>';
+      help+='<g><circle class="hp" cx="'+c[0]+'" cy="'+c[1]+'" r="9"/><path class="hp-x" d="M'+(c[0]-4)+' '+c[1]+'H'+(c[0]+4)+'M'+c[0]+' '+(c[1]-4)+'V'+(c[1]+4)+'"/>'+
+        '<text class="lbl h" x="'+(c[0]+h.lx)+'" y="'+(c[1]+h.ly)+'" text-anchor="'+h.an+'">'+nm({kk:h.sk,ru:h.sr})+'</text></g>';
+    }
+  }
+  // места
+  for(const k in PLACES){
+    const p=PLACES[k],c=NODES[p.n];
+    places+='<circle class="pl" cx="'+c[0]+'" cy="'+c[1]+'" r="4.5"/>';
+    const lab=nm({kk:p.sk,ru:p.sr});
+    if(lab)places+='<text class="lbl" x="'+(c[0]+p.lx)+'" y="'+(c[1]+p.ly)+'" text-anchor="'+p.an+'">'+lab+'</text>';
+  }
+  // моя точка
+  if(S.pick&&S.tab!=='route'){
+    me='<circle class="me-halo" cx="'+S.pick.x.toFixed(1)+'" cy="'+S.pick.y.toFixed(1)+'" r="14"/><circle class="me-dot" cx="'+S.pick.x.toFixed(1)+'" cy="'+S.pick.y.toFixed(1)+'" r="6"/>';
+  }
+  $('g-heat').innerHTML=heat;$('g-st').innerHTML=st;$('g-lamps').innerHTML=lamps;$('g-routes').innerHTML=routes;
+  $('g-reps').innerHTML=reps;$('g-help').innerHTML=help;$('g-places').innerHTML=places;$('g-me').innerHTML=me;
+  $('parklbl').textContent=nm({kk:'Саябақ',ru:'Парк'});
+  $('svg').setAttribute('aria-label',t('mapLabel'));
+}
+
+/* ---------- панели ---------- */
+const pct=v=>Math.round(v*100);
+function scoreBlock(s){const c=riskClass(s);return '<div class="score t-'+c+'">'+pct(s)+'%</div><div class="tag t-'+c+'">'+t(c)+'</div>';}
+
+function panelMap(){
+  const chip=(k,l)=>'<button class="chip" data-act="layer" data-v="'+k+'" aria-pressed="'+S.layers[k]+'">'+t(l)+'</button>';
+  let h='<div class="chips" role="group">'+chip('heat','lHeat')+chip('help','lHelp')+chip('lamps','lLamps')+'</div>';
+  h+='<div class="legend"><span><i class="dot d-safe"></i>'+t('safe')+'</span><span><i class="dot d-mid"></i>'+t('mid')+'</span><span><i class="dot d-danger"></i>'+t('danger')+'</span></div>';
+  if(!S.pick){
+    h+='<div class="card"><div class="hint">'+t('mapHint')+'</div></div>';
+  }else if(S.sel){
+    const isH=S.sel.type==='help',o=(isH?HELP:PLACES)[S.sel.key],s=areaSafety(o.n);
+    h+='<div class="card"><div class="head"><div><div class="ttl">'+nm(o)+'</div><div class="tag">'+t(isH?'helpPt':'place')+(isH?' · '+t('open24'):'')+'</div></div>'+
+       '<div style="text-align:right">'+scoreBlock(s)+'</div></div><div class="tag" style="margin-top:8px">'+t('area')+'</div></div>';
+  }else{
+    const e=nearestEdge(S.pick),s=safety(e),n=repCount(e.id);
+    h+='<div class="card"><div class="head"><div><div class="ttl">'+t('seg',{n:e.n})+'</div><div class="tag">'+e.len+' '+t('m')+'</div></div><div style="text-align:right">'+scoreBlock(s)+'</div></div>'+
+       '<div class="kv"><span>'+t('light')+'</span><div class="bar"><i style="width:'+pct(e.light)+'%"></i></div>'+
+       '<span>'+t('ppl')+'</span><div class="bar"><i style="width:'+pct(e.ppl)+'%"></i></div>'+
+       '<span>'+t('reps')+'</span><span>'+n+'</span></div></div>';
+  }
+  h+='<p class="note">'+t('mapNote')+'</p>';
+  return h;
+}
+
+function panelRoute(){
+  const opts=sel=>Object.keys(PLACES).map(k=>'<option value="'+k+'"'+(k===sel?' selected':'')+'>'+nm(PLACES[k])+'</option>').join('');
+  let h='<div class="ft"><div class="a"><label class="fl" for="sel-from">'+t('from')+'</label><select id="sel-from">'+opts(S.from)+'</select></div>'+
+        '<div class="b"><label class="fl" for="sel-to">'+t('to')+'</label><select id="sel-to">'+opts(S.to)+'</select></div>'+
+        '<button class="sw" data-act="swap" aria-label="'+t('swap')+'">'+svgi('swap',20)+'</button></div>';
+  const R=routesFor(S.from,S.to);
+  if(!R){return h+'<div class="card" style="margin-top:12px"><div class="hint">'+t('samePlace')+'</div></div>';}
+  const sw=(cls)=>'<svg width="44" height="16" viewBox="0 0 44 16" aria-hidden="true"><line class="'+cls+'" x1="4" y1="8" x2="40" y2="8"/></svg>';
+  const card=(title,r,cls)=>'<div class="card"><div class="rt">'+sw(cls)+'<div class="ttl">'+title+'</div>'+
+    '<div class="s">'+r.len+' '+t('m')+' · '+r.min+' '+t('min')+' · '+r.dark+' '+t('darkSeg')+'</div>'+
+    '<div class="p"><b class="t-'+riskClass(r.score/100)+'">'+r.score+'%</b><span>'+t('safety')+'</span></div></div></div>';
+  h+='<div style="margin-top:12px">'+card(t('rSafe'),R.safe,'r-safe');
+  if(!R.same)h+=card(t('rShort'),R.short,'r-short');
+  h+='</div>';
+  if(R.same)h+='<p class="sum">'+t('sameRoute')+'</p>';
+  else h+='<p class="sum">'+t('diffRoute',{d:Math.max(0,R.safe.len-R.short.len),p:Math.max(0,R.safe.score-R.short.score)})+'</p>';
+  return h;
+}
+
+function panelSos(){
+  const ph=(n,k)=>'<a class="phone" href="tel:'+n+'"><b>'+n+'</b><span>'+t(k)+'</span></a>';
+  let h='<div class="alert"><b class="l">'+t('emerg')+'</b><div class="m">'+t('emergSub')+'</div><div class="phones">'+ph('112','p112')+ph('102','p102')+ph('103','p103')+'</div></div>';
+  h+='<button class="sosbtn" data-act="sos">'+t('sosBtn')+'</button>';
+  if(S.needPos)h+='<div class="warn" role="alert">'+t('needPos')+'</div>';
+  // выбор положения
+  let curKey='';
+  if(S.pick){
+    curKey='map';
+    for(const k in PLACES){const c=NODES[PLACES[k].n];if(Math.hypot(S.pick.x-c[0],S.pick.y-c[1])<1)curKey=k;}
+  }
+  let o='<option value=""'+(curKey===''?' selected':'')+'>'+t('choose')+'</option>';
+  Object.keys(PLACES).forEach(k=>{o+='<option value="'+k+'"'+(curKey===k?' selected':'')+'>'+nm(PLACES[k])+'</option>';});
+  if(curKey==='map')o+='<option value="map" selected>'+t('mapPt')+'</option>';
+  h+='<div class="h3">'+t('me')+'</div><select id="sel-me" aria-label="'+t('me')+'">'+o+'</select>';
+  const L=helpList();
+  if(L.length){
+    h+='<div class="h3">'+t('nearest')+'</div><div class="rows">';
+    L.forEach((x,i)=>{
+      const d=x.len?x.len+' '+t('m')+' · '+t('walk',{n:x.min}):t('here');
+      h+='<button class="row" data-act="target" data-v="'+x.key+'" aria-pressed="'+(S.sosOn&&S.target===x.key)+'"><div><div class="n">'+nm(HELP[x.key])+'</div><div class="d">'+d+'</div></div>'+(i===0?'<span class="badge">'+t('nearBadge')+'</span>':'')+'</button>';
+    });
+    h+='</div>';
+    if(S.sosOn&&S.target){
+      const x=L.filter(y=>y.key===S.target)[0];
+      const msg=t('shareMsg',{p:nm(PLACES[nearPlace(S.pick)]),h:nm(HELP[x.key]),d:x.len});
+      h+='<div class="h3">'+t('shareT')+'</div><div class="share" id="sharetxt">'+msg+'</div>'+
+         '<div style="margin-top:8px"><button class="btn" data-act="copy">'+t('copy')+'</button></div>';
+    }
+  }
+  return h;
+}
+
+function panelReport(){
+  const e=S.pick?nearestEdge(S.pick):null;
+  let h='';
+  if(!e){h+='<div class="card"><div class="hint">'+t('rHint')+'</div></div>';}
+  else{
+    const s=safety(e);
+    h+='<div class="card"><div class="head"><div><div class="tag">'+t('rPicked')+'</div><div class="ttl">'+t('seg',{n:e.n})+'</div><div class="tag">'+t('rNow')+'</div></div><div style="text-align:right">'+scoreBlock(s)+'</div></div></div>';
+  }
+  h+='<div class="h3">'+t('tabReport')+'</div><div class="chips" role="group">'+
+     RTYPES.map(k=>'<button class="chip" data-act="rtype" data-v="'+k+'" aria-pressed="'+(S.rtype===k)+'">'+t('rt_'+k)+'</button>').join('')+'</div>';
+  h+='<div style="margin-top:12px"><button class="btn p" data-act="submit"'+(e?'':' disabled')+'>'+t('rSubmit')+'</button></div>';
+  h+='<div class="h3">'+t('mine')+'</div>';
+  if(!S.reports.length)h+='<div class="hint">'+t('none')+'</div>';
+  else{
+    h+='<div class="rlist">';
+    S.reports.slice().reverse().forEach(r=>{
+      const ed=EDGES.filter(x=>x.id===r.edge)[0];
+      h+='<div class="ritem"><div>'+t('rt_'+r.type)+'<small>'+t('seg',{n:ed.n})+'</small></div><button class="x" data-act="delrep" data-v="'+r.id+'" aria-label="'+t('del')+'">×</button></div>';
+    });
+    h+='</div><div style="margin-top:10px"><button class="btn" data-act="clear">'+t('clear')+'</button></div>';
+  }
+  h+='<p class="note">'+t('demoNote')+'</p>';
+  return h;
+}
+
+function renderPanel(){
+  const p=$('panel'),sc=p.scrollTop;
+  p.innerHTML=({map:panelMap,route:panelRoute,sos:panelSos,report:panelReport})[S.tab]();
+  p.scrollTop=sc;
+}
+function renderHeader(){
+  $('sub').textContent=t('proto');
+  document.querySelectorAll('[data-act="lang"]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.v===S.lang));});
+  const td=$('tod');
+  td.innerHTML=svgi(S.night?'moon':'sun',16)+'<span>'+t(S.night?'night':'day')+'</span>';
+  td.setAttribute('aria-pressed',String(S.night));
+  td.setAttribute('aria-label',t('todLabel')+': '+t(S.night?'night':'day'));
+}
+function renderNav(){
+  const items=[['map','tabMap'],['route','tabRoute'],['sos','tabSos'],['report','tabReport']];
+  $('nav').innerHTML=items.map(i=>'<button data-act="tab" data-v="'+i[0]+'"'+(i[0]==='sos'?' class="sos"':'')+(S.tab===i[0]?' aria-current="page"':'')+'>'+svgi(i[0],22)+'<span>'+t(i[1])+'</span></button>').join('');
+}
+function render(){
+  document.documentElement.lang=S.lang;
+  renderHeader();drawMap();renderPanel();renderNav();
+}
+
+/* ---------- действия ---------- */
+let tt=0;
+function toast(m){const el=$('toast');el.textContent=m;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>{el.hidden=true;},2600);}
+function copyText(){
+  const el=$('sharetxt');
+  if(!el)return;
+  const text=el.textContent;
+  const done=()=>toast(t('copied'));
+  const fallback=()=>{
+    try{const r=document.createRange();r.selectNodeContents(el);const s=window.getSelection();s.removeAllRanges();s.addRange(r);
+      if(document.execCommand&&document.execCommand('copy')){done();return;}}catch(e){}
+    toast(t('copyFail'));
+  };
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,fallback);return;}}catch(e){}
+  fallback();
+}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-act]');
+  if(!b)return;
+  const a=b.dataset.act,v=b.dataset.v;
+  if(a==='copy'){copyText();return;}
+  if(a==='tab'){S.tab=v;S.needPos=false;}
+  else if(a==='lang'){S.lang=v;lsSet('csa.lang',v);}
+  else if(a==='tod'){S.night=!S.night;}
+  else if(a==='layer'){S.layers[v]=!S.layers[v];}
+  else if(a==='swap'){const x=S.from;S.from=S.to;S.to=x;}
+  else if(a==='sos'){
+    if(!S.pick){S.needPos=true;render();const s=$('sel-me');if(s)s.focus();return;}
+    S.needPos=false;S.target=helpList()[0].key;S.sosOn=true;
+  }
+  else if(a==='target'){S.target=v;S.sosOn=true;}
+  else if(a==='rtype'){S.rtype=v;}
+  else if(a==='submit'){
+    if(!S.pick)return;
+    const e=nearestEdge(S.pick);
+    S.reports.push({id:String(Date.now())+String(Math.floor(Math.random()*1000)),edge:e.id,type:S.rtype,ts:Date.now()});
+    saveReports();toast(t('thanks'));
+  }
+  else if(a==='delrep'){S.reports=S.reports.filter(r=>r.id!==v);saveReports();}
+  else if(a==='clear'){S.reports=[];saveReports();}
+  render();
+});
+document.addEventListener('change',ev=>{
+  const id=ev.target.id,v=ev.target.value;
+  if(id==='sel-from'){S.from=v;}
+  else if(id==='sel-to'){S.to=v;}
+  else if(id==='sel-me'){
+    if(v&&PLACES[v]){const c=NODES[PLACES[v].n];S.pick={x:c[0],y:c[1]};S.sel=null;S.target=null;S.sosOn=false;S.needPos=false;}
+    else if(!v){S.pick=null;S.target=null;S.sosOn=false;}
+  }else return;
+  render();
+});
+
+/* ---------- старт ---------- */
+const savedLang=lsGet('csa.lang');
+if(savedLang==='kk'||savedLang==='ru')S.lang=savedLang;
+S.reports=loadReports();
+initMap();
+render();
+})();
+</script>
+
+</body>
+</html>
